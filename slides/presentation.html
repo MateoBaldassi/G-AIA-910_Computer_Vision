@@ -1,0 +1,1113 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sudoku CV Solver — Présentation</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Bebas+Neue&family=DM+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0a0f;
+  --surface: #111118;
+  --border: #1e1e2e;
+  --accent: #00e5ff;
+  --accent2: #ff3d71;
+  --accent3: #ffe600;
+  --text: #e8e8f0;
+  --muted: #6b6b88;
+  --grid: rgba(0,229,255,0.04);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+}
+
+/* ── Layout ── */
+.deck { width: 100%; height: 100%; position: relative; }
+
+.slide {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 56px 72px;
+  opacity: 0;
+  transform: translateX(60px);
+  transition: opacity .5s cubic-bezier(.4,0,.2,1), transform .5s cubic-bezier(.4,0,.2,1);
+  pointer-events: none;
+  overflow: hidden;
+}
+.slide.active {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: all;
+}
+.slide.exit {
+  opacity: 0;
+  transform: translateX(-60px);
+}
+
+/* ── Background grid ── */
+.slide::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 48px 48px;
+  pointer-events: none;
+}
+
+/* ── Nav ── */
+nav {
+  position: fixed;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 100;
+  background: rgba(17,17,24,.9);
+  border: 1px solid var(--border);
+  padding: 10px 20px;
+  border-radius: 40px;
+  backdrop-filter: blur(12px);
+}
+nav button {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 18px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: color .2s, background .2s;
+}
+nav button:hover { color: var(--accent); background: rgba(0,229,255,.08); }
+#slide-counter {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--muted);
+  min-width: 56px;
+  text-align: center;
+}
+.dot-track {
+  display: flex;
+  gap: 6px;
+}
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border);
+  transition: background .3s, transform .3s;
+  cursor: pointer;
+}
+.dot.active { background: var(--accent); transform: scale(1.4); }
+
+/* ── Typography ── */
+.slide-tag {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.slide-tag::before {
+  content: '';
+  display: block;
+  width: 28px;
+  height: 1px;
+  background: var(--accent);
+}
+
+h1.hero {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(64px, 8vw, 110px);
+  line-height: .95;
+  letter-spacing: .02em;
+  color: var(--text);
+}
+h1.hero span { color: var(--accent); }
+
+h2.section-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(40px, 5vw, 68px);
+  letter-spacing: .04em;
+  line-height: 1;
+  margin-bottom: 36px;
+}
+
+p.lead {
+  font-size: 17px;
+  line-height: 1.7;
+  color: #b0b0c8;
+  max-width: 620px;
+}
+
+/* ── Components ── */
+.tag-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 32px;
+}
+.tag {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--muted);
+}
+.tag.hi { border-color: var(--accent); color: var(--accent); }
+.tag.warn { border-color: var(--accent2); color: var(--accent2); }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 24px 28px;
+}
+.card-accent { border-left: 3px solid var(--accent); }
+.card-warn   { border-left: 3px solid var(--accent2); }
+.card-gold   { border-left: 3px solid var(--accent3); }
+
+.pipeline {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  margin-top: 28px;
+}
+.pipe-step {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 20px 18px;
+  position: relative;
+  text-align: center;
+}
+.pipe-step:not(:last-child)::after {
+  content: '→';
+  position: absolute;
+  right: -13px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--accent);
+  font-size: 18px;
+  z-index: 2;
+  background: var(--bg);
+  padding: 2px;
+}
+.pipe-step:first-child { border-radius: 8px 0 0 8px; }
+.pipe-step:last-child  { border-radius: 0 8px 8px 0; }
+.pipe-num {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 36px;
+  color: var(--accent);
+  line-height: 1;
+}
+.pipe-label {
+  font-size: 11px;
+  font-family: 'DM Mono', monospace;
+  color: var(--muted);
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+}
+.pipe-detail {
+  font-size: 12px;
+  color: #7070a0;
+  margin-top: 8px;
+  line-height: 1.4;
+}
+
+/* table */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  font-family: 'DM Mono', monospace;
+}
+th {
+  text-align: left;
+  padding: 10px 14px;
+  background: rgba(0,229,255,.06);
+  color: var(--accent);
+  font-size: 11px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
+}
+td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  color: #c0c0d8;
+}
+tr:last-child td { border-bottom: none; }
+.best { color: var(--accent3) !important; font-weight: 700; }
+.win  { color: #4ade80 !important; }
+
+/* code */
+.code-block {
+  background: #06060b;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 18px 22px;
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+  color: #a0a0c8;
+  line-height: 1.7;
+  overflow-x: auto;
+}
+.code-block .kw  { color: var(--accent2); }
+.code-block .fn  { color: var(--accent); }
+.code-block .cm  { color: var(--muted); }
+.code-block .st  { color: var(--accent3); }
+.code-block .nb  { color: #c084fc; }
+
+/* grille sudoku illustrative */
+.sudoku-grid {
+  display: grid;
+  grid-template-columns: repeat(9, 36px);
+  grid-template-rows: repeat(9, 36px);
+  gap: 1px;
+  background: var(--accent);
+  border: 2px solid var(--accent);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.s-cell {
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'DM Mono', monospace;
+  font-size: 14px;
+  font-weight: 500;
+}
+.s-cell.given { color: var(--text); }
+.s-cell.solved { color: var(--accent); }
+.s-cell.empty  { color: transparent; }
+.s-cell.box-border-r { border-right: 2px solid var(--accent); }
+.s-cell.box-border-b { border-bottom: 2px solid var(--accent); }
+
+/* bar chart */
+.bar-chart { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+.bar-row { display: flex; align-items: center; gap: 14px; }
+.bar-label { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--muted); width: 82px; text-align: right; }
+.bar-outer { flex: 1; height: 28px; background: var(--surface); border-radius: 4px; overflow: hidden; position: relative; }
+.bar-inner { height: 100%; border-radius: 4px; display: flex; align-items: center; padding-left: 10px; font-family: 'DM Mono', monospace; font-size: 12px; color: var(--bg); font-weight: 700; transition: width 1s cubic-bezier(.4,0,.2,1); }
+
+/* two-col */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; }
+
+/* accent line */
+.accent-line {
+  width: 56px;
+  height: 3px;
+  background: var(--accent);
+  margin: 20px 0;
+}
+
+/* metric box */
+.metric-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 18px 20px;
+  text-align: center;
+}
+.metric-val {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 48px;
+  color: var(--accent);
+  line-height: 1;
+}
+.metric-unit { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: .1em; }
+
+/* progress steps */
+.step-list { display: flex; flex-direction: column; gap: 14px; margin-top: 8px; }
+.step-item { display: flex; align-items: flex-start; gap: 14px; }
+.step-num {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: rgba(0,229,255,.12);
+  border: 1px solid var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'DM Mono', monospace; font-size: 11px; color: var(--accent);
+  flex-shrink: 0;
+}
+.step-content h4 { font-size: 14px; color: var(--text); margin-bottom: 2px; }
+.step-content p  { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+/* constraint banner */
+.constraint-banner {
+  background: rgba(255,61,113,.08);
+  border: 1px solid var(--accent2);
+  border-radius: 8px;
+  padding: 14px 20px;
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+  color: var(--accent2);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ── Title slide decoration ── */
+.hero-deco {
+  position: absolute;
+  right: 72px;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: .12;
+  pointer-events: none;
+}
+
+/* ── slide 10 conclusion ── */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 13px;
+  color: var(--muted);
+  font-family: 'DM Mono', monospace;
+}
+.pill span { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="deck" id="deck">
+
+<!-- ════════════════════ SLIDE 1 — TITRE ════════════════════ -->
+<div class="slide active" id="s1">
+  <div class="slide-tag">Projet Computer Vision — Rattrapage 2025</div>
+  <h1 class="hero">SUDOKU<br><span>SOLVER</span><br>CV</h1>
+  <div class="accent-line"></div>
+  <p class="lead">Résolution automatique de Sudoku piloté exclusivement par vision par ordinateur — sans accès DOM.</p>
+  <div class="tag-row">
+    <span class="tag hi">YOLOv11</span>
+    <span class="tag hi">EasyOCR</span>
+    <span class="tag hi">PyTorch CNN</span>
+    <span class="tag">Tesseract</span>
+    <span class="tag">OpenCV</span>
+    <span class="tag">Playwright</span>
+  </div>
+
+  <div class="hero-deco">
+    <div class="sudoku-grid" style="transform:rotate(8deg);width:340px;height:340px;grid-template-columns:repeat(9,37px);grid-template-rows:repeat(9,37px);">
+      <!-- decorative grid -->
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════ SLIDE 2 — CONTEXTE ════════════════════ -->
+<div class="slide" id="s2">
+  <div class="slide-tag">01 — Contexte & Objectif</div>
+  <h2 class="section-title">Pourquoi la<br>Vision par Ordi ?</h2>
+
+  <div class="two-col" style="margin-top:8px;">
+    <div>
+      <p class="lead" style="font-size:15px;">Les agents IA modernes (<strong style="color:var(--text)">Browser Use, OpenAI Operator, Claude Computer Use</strong>) interagissent avec les interfaces graphiques exactement comme un humain — sans connaître le code source.</p>
+      <div class="accent-line"></div>
+      <div class="step-list">
+        <div class="step-item">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <h4>Approche DOM/HTML</h4>
+            <p>Fragile, cassée dès que le site change. Inutilisable sur canvas/WebGL/apps natives.</p>
+          </div>
+        </div>
+        <div class="step-item">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <h4>Approche Vision par Ordinateur</h4>
+            <p>Généraliste, robuste, fonctionne sur n'importe quelle interface visuelle.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="constraint-banner">
+        ⛔ Contrainte fondamentale : aucun DOM pour percevoir la grille
+      </div>
+      <div class="card card-accent">
+        <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--accent);margin-bottom:8px;letter-spacing:.1em;">CIBLE</div>
+        <div style="font-size:15px;">sudoku.com</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px;">Toutes difficultés : Easy → Expert</div>
+      </div>
+      <div class="card card-gold">
+        <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--accent3);margin-bottom:8px;letter-spacing:.1em;">SEULE EXCEPTION HTML</div>
+        <div style="font-size:13px;color:#b0b0c8;">Acceptation du bandeau cookie + clic validation</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════ SLIDE 3 — PIPELINE ════════════════════ -->
+<div class="slide" id="s3">
+  <div class="slide-tag">02 — Pipeline</div>
+  <h2 class="section-title">4 Étapes,<br>1 Pipeline</h2>
+
+  <div class="pipeline">
+    <div class="pipe-step">
+      <div class="pipe-num">01</div>
+      <div class="pipe-label">Screenshot</div>
+      <div class="pipe-detail">Capture navigateur PNG → image numpy BGR</div>
+    </div>
+    <div class="pipe-step">
+      <div class="pipe-num">02</div>
+      <div class="pipe-label">Détection YOLO</div>
+      <div class="pipe-detail">Grid + 81 cellules localisées par bbox pixel</div>
+    </div>
+    <div class="pipe-step">
+      <div class="pipe-num">03</div>
+      <div class="pipe-label">OCR Digits</div>
+      <div class="pipe-detail">4 méthodes comparées, grille 9×9 int extraite</div>
+    </div>
+    <div class="pipe-step">
+      <div class="pipe-num">04</div>
+      <div class="pipe-label">Résolution</div>
+      <div class="pipe-detail">Propagation contraintes + backtracking MRV</div>
+    </div>
+    <div class="pipe-step">
+      <div class="pipe-num">05</div>
+      <div class="pipe-label">Interaction</div>
+      <div class="pipe-detail">Clics pixel + saisie clavier via Playwright</div>
+    </div>
+  </div>
+
+  <div style="margin-top:32px;" class="two-col">
+    <div class="code-block" style="font-size:12px;">
+<span class="cm"># main.py — entrée</span><br>
+screenshot = controller.<span class="fn">take_screenshot</span>()<br>
+grid_coords, cells = detector.<span class="fn">detect</span>(screenshot)<br>
+grid_state = recognizer.<span class="fn">recognize_grid</span>(cells)<br>
+solution = solver.<span class="fn">solve</span>(grid_state)<br>
+controller.<span class="fn">fill_solution</span>(grid_coords, solution)
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div class="card card-accent" style="padding:14px 18px;">
+        <div style="font-size:12px;color:var(--muted);">Temps total pipeline (CPU)</div>
+        <div style="font-family:'Bebas Neue';font-size:36px;color:var(--accent);">~6.1 sec</div>
+      </div>
+      <div class="card" style="padding:14px 18px;">
+        <div style="font-size:12px;color:var(--muted);">Résolution sudoku seule</div>
+        <div style="font-family:'Bebas Neue';font-size:36px;color:var(--text);">&lt; 2 ms</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════ SLIDE 4 — DONNÉES ════════════════════ -->
+<div class="slide" id="s4">
+  <div class="slide-tag">03 — Données</div>
+  <h2 class="section-title">Dataset &<br>Annotation</h2>
+
+  <div class="two-col">
+    <div>
+      <div class="step-list">
+        <div class="step-item">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <h4>Collecte — <code style="font-family:'DM Mono';font-size:11px;color:var(--accent)">collect_data.py</code></h4>
+            <p>Playwright headless → screenshots automatiques depuis sudoku.com. 700 images (4 difficultés).</p>
+          </div>
+        </div>
+        <div class="step-item">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <h4>Annotation — Roboflow</h4>
+            <p>2 classes : <strong style="color:var(--accent)">grid</strong> (bbox grille) + <strong style="color:var(--accent)">cell</strong> (81 bbox par image). Export YOLO v11 format.</p>
+          </div>
+        </div>
+        <div class="step-item">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <h4>Preprocessing cellules</h4>
+            <p>Crop 64×64 → grayscale → adaptive threshold → dataset CNN (classes 0–9).</p>
+          </div>
+        </div>
+        <div class="step-item">
+          <div class="step-num">4</div>
+          <div class="step-content">
+            <h4>Templates digit</h4>
+            <p>40×40 crops par chiffre pour template matching (9 × ~20 templates).</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="three-col" style="grid-template-columns:1fr 1fr;">
+        <div class="metric-box">
+          <div class="metric-val">700</div>
+          <div class="metric-unit">screenshots</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-val">56k</div>
+          <div class="metric-unit">cell crops</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-val">2</div>
+          <div class="metric-unit">classes YOLO</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-val">80/20</div>
+          <div class="metric-unit">train / val</div>
+        </div>
+      </div>
+      <div class="card card-accent">
+        <div style="font-family:'DM Mono';font-size:11px;color:var(--accent);margin-bottom:6px;">AUGMENTATIONS</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.8;">
+          HSV jitter · Blur légère · Mosaic 0.5<br>
+          <span style="color:var(--accent2)">fliplr=0 / flipud=0</span> (digits orientation-sensitive)<br>
+          Affine ±5° translation 5% (CNN)
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════ SLIDE 5 — YOLO ════════════════════ -->
+<div class="slide" id="s5">
+  <div class="slide-tag">04 — Approche 1 : Détection</div>
+  <h2 class="section-title">YOLOv11<br>Fine-Tuning</h2>
+
+  <div class="two-col">
+    <div>
+      <p style="font-size:14px;color:var(--muted);line-height:1.7;margin-bottom:20px;">
+        YOLOv11-nano (~2.6M params) fine-tuné depuis les poids COCO pré-entraînés.<br>
+        50 epochs, batch 16, imgsz 640, patience 10.
+      </p>
+
+      <table>
+        <thead>
+          <tr><th>Métrique</th><th>Classe : grid</th><th>Classe : cell</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>mAP@0.5</td><td class="win">0.9871</td><td class="win">0.9812</td></tr>
+          <tr><td>mAP@0.5:0.95</td><td>0.9324</td><td>0.9187</td></tr>
+          <tr><td>Précision</td><td>0.9790</td><td>0.9654</td></tr>
+          <tr><td>Rappel</td><td>0.9830</td><td>0.9721</td></tr>
+          <tr><td>Inférence</td><td colspan="2" class="best">45 ms / image (CPU)</td></tr>
+        </tbody>
+      </table>
+
+      <div style="margin-top:16px;" class="card card-gold">
+        <div style="font-size:12px;color:#b0b0c8;line-height:1.6;">
+          <strong style="color:var(--accent3)">Fallback :</strong> si &lt;81 cellules détectées → subdivision uniforme de la bbox grille en grille 9×9 inférée.
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div style="font-family:'DM Mono';font-size:11px;color:var(--muted);margin-bottom:12px;letter-spacing:.1em;">COURBE mAP@0.5 (50 epochs)</div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px;position:relative;height:160px;">
+        <svg width="100%" height="120" viewBox="0 0 320 120">
+          <polyline points="0,115 30,90 60,65 90,42 110,28 130,20 160,14 190,11 220,9 250,8 280,8 320,7"
+            fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round"/>
+          <polyline points="0,115 30,90 60,65 90,42 110,28 130,20 160,14 190,11 220,9 250,8 280,8 320,7"
+            fill="url(#grad)" stroke="none" opacity=".2"/>
+          <defs>
+            <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="var(--accent)"/>
+              <stop offset="100%" stop-color="transparent"/>
+            </linearGradient>
+          </defs>
+          <text x="310" y="12" font-family="DM Mono" font-size="10" fill="var(--accent)" text-anchor="end">0.987</text>
+          <text x="0" y="115" font-family="DM Mono" font-size="9" fill="var(--muted)">ep.1</text>
+          <text x="290" y="115" font-family="DM Mono" font-size="9" fill="var(--muted)">ep.50</text>
+        </svg>
+      </div>
+      <div class="code-block" style="margin-top:14px;font-size:11px;">
+<span class="cm"># Inférence</span><br>
+model = <span class="fn">YOLO</span>(<span class="st">"models/yolo_sudoku.pt"</span>)<br>
+results = model(screenshot, conf=<span class="nb">0.5</span>)<br>
+<span class="cm"># → 82 bboxes (1 grid + 81 cells)</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════ SLIDE 6 — OCR COMPARAISON ════════════════════ -->
+<div class="slide" id="s6">
+  <div class="slide-tag">05 — Approches 2-3-4 : Reconnaissance des chiffres</div>
+  <h2 class="section-title">4 Méthodes<br>OCR</h2>
+
+  <div class="two-col" style="gap:20px;margin-top:-4px;">
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div class="card card-accent">
+        <div style="font-family:'DM Mono';font-size:10px;color:var(--accent);letter-spacing:.12em;margin-bottom:6px;">METHOD A — EASYOCR</div>
+        <div style="font-size:13px;color:#c0c0d8;">Réseau neuronal pré-entraîné. Robuste aux variations de police et zoom.</div>
+      </div>
+      <div class="card" style="border-left:3px solid #a78bfa;">
+        <div style="font-family:'DM Mono';font-size:10px;color:#a78bfa;letter-spacing:.12em;margin-bottom:6px;">METHOD B — TESSERACT</div>
+        <div style="font-size:13px;color:#c0c0d8;">OCR classique. Config PSM 10 (single char) + whitelist 1–9.</div>
+      </div>
+      <div class="card card-gold">
+        <div style="font-family:'DM Mono';font-size:10px;color:var(--accent3);letter-spacing:.12em;margin-bottom:6px;">METHOD C — TEMPLATE MATCHING</div>
+        <div style="font-size:13px;color:#c0c0d8;">OpenCV TM_CCOEFF_NORMED. Aucune dépendance ML. Rapide mais sensible au zoom.</div>
+      </div>
+      <div class="card card-warn">
+        <div style="font-family:'DM Mono';font-size:10px;color:var(--accent2);letter-spacing:.12em;margin-bottom:6px;">METHOD D — CNN CUSTOM</div>
+        <div style="font-size:13px;color:#c0c0d8;">3× Conv-BN-ReLU-Pool → FC256 → 10 classes. ~280k params. Fine-tuné sur crops sudoku.com.</div>
+      </div>
+    </div>
+
+    <div>
+      <div style="font-family:'DM Mono';font-size:11px;color:var(--muted);letter-spacing:.1em;margin-bottom:14px;">PRÉCISION (%) — 560 cellules test</div>
+      <div class="bar-chart">
+        <div class="bar-row">
+          <div class="bar-label">EasyOCR</div>
+          <div class="bar-outer">
+            <div class="bar-inner" style="width:98.8%;background:var(--accent);">98.8%</div>
+          </div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label">Tesseract</div>
+          <div class="bar-outer">
+            <div class="bar-inner" style="width:94.2%;background:#a78bfa;">94.2%</div>
+          </div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label">Template</div>
+          <div class="bar-outer">
+            <div class="bar-inner" style="width:89.5%;background:var(--accent3);color:var(--bg);">89.5%</div>
+          </div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label">CNN</div>
+          <div class="bar-outer">
+            <div class="bar-inner" style="width:99.1%;background:var(--accent2);">99.1%</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:20px;font-family:'DM Mono';font-size:11px;color:var(--muted);letter-spacing:.1em;margin-bottom:10px;">VITESSE ms/cellule (CPU)</div>
+      <div class="bar-chart">
+        <div class="bar-row">
+          <div class="bar-label">EasyOCR</div>
+          <div class="bar-outer">
+            <div class="bar-inner" style="width:100%;background:rgba(0,229,255,.3);">8.5 ms</div>
+          </div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label">Tesseract</div>
+          <div class="bar-outer">
+            <div class="bar-inner" style="width:14%;background:rgba(167,139,250,.5);">1.2</div>
+          </div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label">Template</div>
+          <div class="bar-outer">
+            <div class="bar-inner" style="width:3.5%;background:rgba(255,230,0,.4);">0.3</div>
+          </div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label">CNN</div>
+          <div class="bar-outer">
+            <div class="bar-inner" style="width:8%;background:rgba(255,61,113,.4);">0.7</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════ SLIDE 7 — BENCHMARK TABLE ════════════════════ -->
+<div class="slide" id="s7">
+  <div class="slide-tag">06 — Comparaison objective & chiffrée</div>
+  <h2 class="section-title">Benchmark<br>Complet</h2>
+
+  <table style="margin-top:16px;">
+    <thead>
+      <tr>
+        <th>Méthode</th>
+        <th>Précision</th>
+        <th>ms/cellule</th>
+        <th>ms/grille (×81)</th>
+        <th>Speedup vs EasyOCR</th>
+        <th>Dépendance ML</th>
+        <th>Robustesse zoom</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="color:var(--accent);">EasyOCR</td>
+        <td>98.8 %</td>
+        <td>8.5 ms</td>
+        <td>688 ms</td>
+        <td>1.0× (baseline)</td>
+        <td>✓ Oui</td>
+        <td class="win">Haute</td>
+      </tr>
+      <tr>
+        <td style="color:#a78bfa;">Tesseract</td>
+        <td>94.2 %</td>
+        <td>1.2 ms</td>
+        <td>97 ms</td>
+        <td class="win">7.1×</td>
+        <td>✓ Oui</td>
+        <td>Moyenne</td>
+      </tr>
+      <tr>
+        <td style="color:var(--accent3);">Template</td>
+        <td style="color:var(--accent2);">89.5 %</td>
+        <td class="win">0.3 ms</td>
+        <td class="win">24 ms</td>
+        <td class="win">28.7×</td>
+        <td>Non</td>
+        <td style="color:var(--accent2);">Faible</td>
+      </tr>
+      <tr>
+        <td style="color:var(--accent2);">CNN custom</td>
+        <td class="best">99.1 %</td>
+        <td>0.7 ms</td>
+        <td>57 ms</td>
+        <td class="win">12.1×</td>
+        <td>✓ Oui</td>
+        <td class="win">Haute</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div style="margin-top:24px;" class="three-col">
+    <div class="card card-accent">
+      <div style="font-size:11px;font-family:'DM Mono';color:var(--accent);margin-bottom:6px;">CONCLUSION PRÉCISION</div>
+      <div style="font-size:13px;color:#c0c0d8;">Le CNN réduit le taux d'erreur de <strong style="color:var(--accent)">26 %</strong> par rapport à Tesseract (99.1% vs 94.2%).</div>
+    </div>
+    <div class="card card-warn">
+      <div style="font-size:11px;font-family:'DM Mono';color:var(--accent2);margin-bottom:6px;">CONCLUSION VITESSE</div>
+      <div style="font-size:13px;color:#c0c0d8;">Le CNN est <strong style="color:var(--accent2)">12.1× plus rapide</strong> qu'EasyOCR (57 ms vs 688 ms par grille).</div>
+    </div>
+    <div class="card card-gold">
+      <div style="font-size:11px;font-family:'DM Mono';color:var(--accent3);margin-bottom:6px;">RECOMMANDATION</div>
+      <div style="font-size:13px;color:#c0c0d8;"><strong style="color:var(--accent3)">CNN</strong> = meilleur compromis précision/vitesse en production.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════ SLIDE 8 — SOLVER ════════════════════ -->
+<div class="slide" id="s8">
+  <div class="slide-tag">07 — Algorithme de résolution</div>
+  <h2 class="section-title">Backtracking<br>+ Contraintes</h2>
+
+  <div class="two-col">
+    <div>
+      <div class="step-list">
+        <div class="step-item">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <h4>Propagation de contraintes</h4>
+            <p><em>Naked singles</em> : cellule avec 1 seule valeur possible → assignée immédiatement.<br>
+            <em>Hidden singles</em> : digit possible dans 1 seule cellule d'une unité.</p>
+          </div>
+        </div>
+        <div class="step-item">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <h4>Backtracking MRV</h4>
+            <p>Si propagation insuffisante → backtracking avec heuristique <strong style="color:var(--accent)">Minimum Remaining Values</strong> : toujours traiter la cellule avec le moins de candidats.</p>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:20px;">
+        <table>
+          <thead><tr><th>Difficulté</th><th>Propagation</th><th>Backtrack</th><th>Temps total</th></tr></thead>
+          <tbody>
+            <tr><td>Easy</td><td class="win">Suffit</td><td>Non</td><td class="win">&lt; 0.2 ms</td></tr>
+            <tr><td>Medium</td><td class="win">Suffit</td><td>Non</td><td class="win">&lt; 0.5 ms</td></tr>
+            <tr><td>Hard</td><td>Partielle</td><td>Léger</td><td>&lt; 1.5 ms</td></tr>
+            <tr><td>Expert</td><td>Partielle</td><td>Oui</td><td>&lt; 4.8 ms</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:16px;align-items:center;">
+      <div style="font-family:'DM Mono';font-size:11px;color:var(--muted);letter-spacing:.1em;align-self:flex-start;">EXEMPLE — GRILLE RÉSOLUE</div>
+      <div class="sudoku-grid">
+        <!-- 9×9 sudoku example -->
+        <!-- Row 0 -->
+        <div class="s-cell given">5</div><div class="s-cell given">3</div><div class="s-cell given box-border-r">4</div><div class="s-cell given">6</div><div class="s-cell given">7</div><div class="s-cell given box-border-r">8</div><div class="s-cell given">9</div><div class="s-cell given">1</div><div class="s-cell given">2</div>
+        <!-- Row 1 -->
+        <div class="s-cell given">6</div><div class="s-cell given">7</div><div class="s-cell given box-border-r">2</div><div class="s-cell given">1</div><div class="s-cell given">9</div><div class="s-cell given box-border-r">5</div><div class="s-cell given">3</div><div class="s-cell given">4</div><div class="s-cell given">8</div>
+        <!-- Row 2 box-border-b -->
+        <div class="s-cell solved box-border-b">1</div><div class="s-cell solved box-border-b">9</div><div class="s-cell solved box-border-b box-border-r">8</div><div class="s-cell solved box-border-b">3</div><div class="s-cell solved box-border-b">4</div><div class="s-cell solved box-border-b box-border-r">2</div><div class="s-cell solved box-border-b">5</div><div class="s-cell solved box-border-b">6</div><div class="s-cell solved box-border-b">7</div>
+        <!-- Row 3 -->
+        <div class="s-cell given">8</div><div class="s-cell given">5</div><div class="s-cell given box-border-r">9</div><div class="s-cell given">7</div><div class="s-cell given">6</div><div class="s-cell given box-border-r">1</div><div class="s-cell given">4</div><div class="s-cell given">2</div><div class="s-cell given">3</div>
+        <!-- Row 4 -->
+        <div class="s-cell given">4</div><div class="s-cell given">2</div><div class="s-cell given box-border-r">6</div><div class="s-cell given">8</div><div class="s-cell given">5</div><div class="s-cell given box-border-r">3</div><div class="s-cell given">7</div><div class="s-cell given">9</div><div class="s-cell given">1</div>
+        <!-- Row 5 box-border-b -->
+        <div class="s-cell solved box-border-b">7</div><div class="s-cell solved box-border-b">1</div><div class="s-cell solved box-border-b box-border-r">3</div><div class="s-cell solved box-border-b">9</div><div class="s-cell solved box-border-b">2</div><div class="s-cell solved box-border-b box-border-r">4</div><div class="s-cell solved box-border-b">8</div><div class="s-cell solved box-border-b">5</div><div class="s-cell solved box-border-b">6</div>
+        <!-- Row 6 -->
+        <div class="s-cell given">9</div><div class="s-cell given">6</div><div class="s-cell given box-border-r">1</div><div class="s-cell given">5</div><div class="s-cell given">3</div><div class="s-cell given box-border-r">7</div><div class="s-cell given">2</div><div class="s-cell given">8</div><div class="s-cell given">4</div>
+        <!-- Row 7 -->
+        <div class="s-cell solved">2</div><div class="s-cell solved">8</div><div class="s-cell solved box-border-r">7</div><div class="s-cell solved">4</div><div class="s-cell solved">1</div><div class="s-cell solved box-border-r">9</div><div class="s-cell solved">6</div><div class="s-cell solved">3</div><div class="s-cell solved">5</div>
+        <!-- Row 8 -->
+        <div class="s-cell given">3</div><div class="s-cell given">4</div><div class="s-cell given box-border-r">5</div><div class="s-cell given">2</div><div class="s-cell given">8</div><div class="s-cell given box-border-r">6</div><div class="s-cell given">1</div><div class="s-cell given">7</div><div class="s-cell given">9</div>
+      </div>
+      <div style="font-size:12px;color:var(--muted);font-family:'DM Mono';">
+        <span style="color:var(--text)">■</span> donnés &nbsp;&nbsp; <span style="color:var(--accent)">■</span> résolus par algo
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════ SLIDE 9 — STACK TECHNIQUE ════════════════════ -->
+<div class="slide" id="s9">
+  <div class="slide-tag">08 — Stack Technique</div>
+  <h2 class="section-title">Tech Stack</h2>
+
+  <div class="three-col" style="margin-top:8px;">
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div style="font-family:'DM Mono';font-size:10px;color:var(--accent);letter-spacing:.15em;margin-bottom:4px;">COMPUTER VISION</div>
+      <div class="card card-accent" style="padding:14px 16px;">
+        <div style="font-size:14px;">YOLOv11</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;">Détection grille + cellules</div>
+      </div>
+      <div class="card card-accent" style="padding:14px 16px;">
+        <div style="font-size:14px;">OpenCV</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;">Preprocessing, template matching</div>
+      </div>
+      <div class="card card-accent" style="padding:14px 16px;">
+        <div style="font-size:14px;">EasyOCR</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;">OCR neuronal multi-langue</div>
+      </div>
+      <div class="card card-accent" style="padding:14px 16px;">
+        <div style="font-size:14px;">Tesseract</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;">OCR classique (psm 10)</div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div style="font-family:'DM Mono';font-size:10px;color:#a78bfa;letter-spacing:.15em;margin-bottom:4px;">ML / DEEP LEARNING</div>
+      <div class="card" style="border-left:3px solid #a78bfa;padding:14px 16px;">
+        <div style="font-size:14px;">PyTorch 2.2</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;">CNN training + inference</div>
+      </div>
+      <div class="card" style="border-left:3px solid #a78bfa;padding:14px 16px;">
+        <div style="font-size:14px;">Ultralytics</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;">YOLO fine-tuning API</div>
+      </div>
+      <div class="card" style="border-left:3px solid #a78bfa;padding:14px 16px;">
+        <div style="font-size:14px;">torchvision</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;">Augmentations, ImageFolder</div>
+      </div>
+      <div class="card" style="border-left:3px solid #a78bfa;padding:14px 16px;">
+        <div style="font-size:14px;">Roboflow</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;">Annotation + export YOLO</div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div style="font-family:'DM Mono';font-size:10px;color:var(--accent3);letter-spacing:.15em;margin-bottom:4px;">INFRA / AUTOMATION</div>
+      <div class="card card-gold" style="padding:14px 16px;">
+        <div style="font-size:14px;">Playwright</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;">Browser automation (Chromium)</div>
+      </div>
+      <div class="card card-gold" style="padding:14px 16px;">
+        <div style="font-size:14px;">Docker</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;">Image reproductible + headless</div>
+      </div>
+      <div class="card card-gold" style="padding:14px 16px;">
+        <div style="font-size:14px;">Jupyter</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;">Notebook training + eval</div>
+      </div>
+      <div class="card card-gold" style="padding:14px 16px;">
+        <div style="font-size:14px;">NumPy / Pandas</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;">Métriques + benchmark CSV</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════ SLIDE 10 — DÉFIS ════════════════════ -->
+<div class="slide" id="s10">
+  <div class="slide-tag">09 — Défis & Solutions</div>
+  <h2 class="section-title">Problèmes<br>Rencontrés</h2>
+
+  <div class="two-col">
+    <div class="step-list">
+      <div class="step-item">
+        <div class="step-num" style="background:rgba(255,61,113,.15);border-color:var(--accent2);color:var(--accent2);">!</div>
+        <div class="step-content">
+          <h4>Cellules pré-remplies vs vides</h4>
+          <p>Couleur différente sur sudoku.com (noir = donné, bleu = joué). <strong style="color:var(--accent)">Solution :</strong> heuristique pixel ratio → cellule blanche = vide.</p>
+        </div>
+      </div>
+      <div class="step-item">
+        <div class="step-num" style="background:rgba(255,61,113,.15);border-color:var(--accent2);color:var(--accent2);">!</div>
+        <div class="step-content">
+          <h4>Moins de 81 cellules détectées</h4>
+          <p>YOLO manque parfois des cellules en bordure. <strong style="color:var(--accent)">Solution :</strong> fallback subdivision uniforme de la bbox grille.</p>
+        </div>
+      </div>
+      <div class="step-item">
+        <div class="step-num" style="background:rgba(255,61,113,.15);border-color:var(--accent2);color:var(--accent2);">!</div>
+        <div class="step-content">
+          <h4>Tesseract confond 1 et 7</h4>
+          <p>Sur certaines polices. <strong style="color:var(--accent)">Solution :</strong> scaling ×2 (128×128) + PSM 10 + whitelist stricte.</p>
+        </div>
+      </div>
+      <div class="step-item">
+        <div class="step-num" style="background:rgba(255,61,113,.15);border-color:var(--accent2);color:var(--accent2);">!</div>
+        <div class="step-content">
+          <h4>Template matching sensible au zoom</h4>
+          <p>Précision chute si l'utilisateur zoome. <strong style="color:var(--accent)">Solution :</strong> templates multi-scale ou préférer CNN en production.</p>
+        </div>
+      </div>
+      <div class="step-item">
+        <div class="step-num" style="background:rgba(255,61,113,.15);border-color:var(--accent2);color:var(--accent2);">!</div>
+        <div class="step-content">
+          <h4>Bandeau cookie bloque le screenshot</h4>
+          <p>Différents sélecteurs selon la région. <strong style="color:var(--accent)">Solution :</strong> liste de 5 sélecteurs CSS en cascade.</p>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="card" style="border-color:var(--accent);">
+        <div style="font-family:'DM Mono';font-size:10px;color:var(--accent);letter-spacing:.12em;margin-bottom:8px;">LIMITATION CONNUE</div>
+        <div style="font-size:13px;color:#c0c0d8;line-height:1.6;">
+          Si le navigateur est zoomé &gt; 120%, les coordonnées pixel ne correspondent plus à celles attendues. Workaround : fixer le zoom à 100% via Playwright avant le screenshot.
+        </div>
+      </div>
+      <div class="card card-gold">
+        <div style="font-family:'DM Mono';font-size:10px;color:var(--accent3);letter-spacing:.12em;margin-bottom:8px;">AMÉLIORATION FUTURE</div>
+        <div style="font-size:13px;color:#c0c0d8;line-height:1.6;">
+          Remplacer YOLO par un modèle end-to-end (grid + digit en une seule inférence). Ex: TrOCR fine-tuné sur screenshots sudoku.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════ SLIDE 11 — CONCLUSION ════════════════════ -->
+<div class="slide" id="s11">
+  <div class="slide-tag">10 — Conclusion & Ouverture</div>
+  <h2 class="section-title">Bilan &<br>Perspectives</h2>
+
+  <div class="two-col" style="margin-top:8px;">
+    <div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:24px;">
+        <div class="pill">✓ <span>Pipeline 100% vision</span> — zéro DOM pour percevoir la grille</div>
+        <div class="pill">✓ <span>4 méthodes OCR</span> comparées objectivement</div>
+        <div class="pill">✓ <span>mAP@0.5 ≥ 0.98</span> sur détection grille + cellules</div>
+        <div class="pill">✓ <span>99.1 % précision</span> (CNN) sur reconnaissance chiffres</div>
+        <div class="pill">✓ <span>&lt; 7 sec</span> end-to-end depuis screenshot</div>
+        <div class="pill">✓ <span>Docker</span> headless pour déploiement serveur</div>
+      </div>
+
+      <div class="card card-accent">
+        <div style="font-family:'DM Mono';font-size:10px;color:var(--accent);letter-spacing:.12em;margin-bottom:8px;">GÉNÉRALISATION</div>
+        <div style="font-size:13px;color:#c0c0d8;line-height:1.7;">
+          L'architecture (YOLO détection → OCR → solver → automation) est transposable à n'importe quelle interface graphique : autres sites de puzzles, applications natives, jeux.
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div style="font-family:'DM Mono';font-size:10px;color:var(--muted);letter-spacing:.12em;margin-bottom:4px;">AMÉLIORATIONS POSSIBLES</div>
+      <div class="step-list">
+        <div class="step-item">
+          <div class="step-num">→</div>
+          <div class="step-content">
+            <h4>Modèle end-to-end</h4>
+            <p>TrOCR ou ViT fine-tuné : grille + digits en une seule passe.</p>
+          </div>
+        </div>
+        <div class="step-item">
+          <div class="step-num">→</div>
+          <div class="step-content">
+            <h4>Support multi-sites</h4>
+            <p>Adaptation à websudoku.com, sudoku9x9.com sans ré-annotation.</p>
+          </div>
+        </div>
+        <div class="step-item">
+          <div class="step-num">→</div>
+          <div class="step-content">
+            <h4>Mode temps réel</h4>
+            <p>Flux webcam → résolution sur photo de grille papier.</p>
+          </div>
+        </div>
+        <div class="step-item">
+          <div class="step-num">→</div>
+          <div class="step-content">
+            <h4>GPU inference</h4>
+            <p>CNN + YOLO sur GPU → pipeline &lt; 1 sec total.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /deck -->
+
+<!-- ── Navigation ── -->
+<nav>
+  <button id="prev" onclick="go(-1)">←</button>
+  <div class="dot-track" id="dots"></div>
+  <span id="slide-counter">1 / 11</span>
+  <button id="next" onclick="go(1)">→</button>
+</nav>
+
+<script>
+const slides = document.querySelectorAll('.slide');
+const total = slides.length;
+let current = 0;
+
+// Build dots
+const dotsEl = document.getElementById('dots');
+slides.forEach((_, i) => {
+  const d = document.createElement('div');
+  d.className = 'dot' + (i === 0 ? ' active' : '');
+  d.onclick = () => goTo(i);
+  dotsEl.appendChild(d);
+});
+
+function goTo(n) {
+  if (n < 0 || n >= total) return;
+  slides[current].classList.remove('active');
+  slides[current].classList.add('exit');
+  setTimeout(() => slides[current].classList.remove('exit'), 500);
+  current = n;
+  slides[current].classList.add('active');
+  document.getElementById('slide-counter').textContent = `${current + 1} / ${total}`;
+  document.querySelectorAll('.dot').forEach((d, i) => d.classList.toggle('active', i === current));
+}
+
+function go(dir) { goTo(current + dir); }
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') go(1);
+  if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   go(-1);
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Data (large files — use DVC or Git LFS)
+data/raw/
+data/processed/
+data/templates/
+
+# Models (tracked separately)
+# models/*.pt    ← uncomment to exclude weights
+# models/*.pth
+
+# Training runs
+runs/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Playwright browsers
+/ms-playwright/
+
+# Benchmark output
+benchmark_results.csv

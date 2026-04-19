@@ -1,7 +1,7 @@
 # Sudoku CV Solver 🎯
 
 > Résolution de Sudoku piloté entièrement par vision par ordinateur.  
-> Le programme capture le navigateur, détecte la grille par YOLO, reconnaît les chiffres, résout le puzzle et remplit la solution automatiquement — **sans jamais toucher au DOM HTML**.
+> Le programme capture le navigateur, détecte la grille par YOLO, reconnaît les chiffres, résout le puzzle et remplit la solution automatiquement
 
 ---
 
@@ -29,7 +29,7 @@ Screenshot (PNG)
       ▼
 ┌─────────────────────┐
 │  YOLO v11 (fine-    │  ← détecte grille + 81 cellules
-│  tuned sudoku.com)  │    par vision uniquement
+│  tuned sudoku.com)  │    par vision
 └────────┬────────────┘
          │  coordonnées + crops 64×64
          ▼
@@ -48,7 +48,7 @@ Screenshot (PNG)
          ▼
 ┌─────────────────────┐
 │  Browser Controller │  ← clics + saisie clavier
-│  (Playwright)       │    sur les coordonnées pixel
+│  (Playwright)       │    sur les coordonnées
 └─────────────────────┘
 ```
 
@@ -94,7 +94,7 @@ python src/main.py --digit-method easyocr
 # Tesseract (plus rapide)
 python src/main.py --digit-method tesseract
 
-# Template matching (pas de ML, très rapide)
+# Template matching (pas de ML, très rapide, mais moins fiable)
 python src/main.py --digit-method template
 
 # CNN personnalisé (précision maximale une fois entraîné)
@@ -166,6 +166,7 @@ python scripts/extract_templates.py \
     --screenshot data/raw/easy/easy_0000.png \
     --solution "530070000600195000..."
 # → data/templates/{1..9}_*.png
+# --solution prend les 81 chiffres dans la grilles de gauche à droite de haut en bas
 ```
 
 ---
